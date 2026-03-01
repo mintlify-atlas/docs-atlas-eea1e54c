@@ -1,0 +1,65 @@
+{
+  "projectType": "frontend",
+  "projectName": "Data Command",
+  "projectDescription": "A data-driven command palette component built on shadcn/ui with async fetching, nested commands, and instant search.",
+  "theme": "palm",
+  "primaryColor": "#3b82f6",
+  "lightColor": "#60a5fa",
+  "darkColor": "#2563eb",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Examples",
+        "pages": [
+          "examples/simple",
+          "examples/api-loading",
+          "examples/default-chain"
+        ]
+      },
+      {
+        "group": "API Reference",
+        "pages": [
+          "api/data-command",
+          "api/command-data-item",
+          "api/props"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/nested-commands",
+          "guides/async-loading",
+          "guides/keyboard-navigation"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Data-driven architecture for loading items dynamically from APIs",
+    "Nested command selections with drill-down navigation",
+    "Async data fetching with loading states",
+    "Built on shadcn/ui for seamless integration",
+    "Keyboard navigation with Tab and Enter shortcuts",
+    "Instant search with filtering"
+  ],
+  "publicApiSurface": [
+    "DataCommand (component)",
+    "CommandDataItem (interface)",
+    "FetchCommandDataSubItems (type)",
+    "items (prop)",
+    "onClose (prop)",
+    "defaultPath (prop)",
+    "loadItems (method)",
+    "loadOneItem (method)",
+    "onSelect (callback)",
+    "searchPlaceholder (prop)"
+  ]
+}
