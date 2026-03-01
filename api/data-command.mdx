@@ -1,0 +1,126 @@
+---
+title: DataCommand
+description: A hierarchical command palette component for navigating and selecting data with async loading support
+---
+
+## Overview
+
+The `DataCommand` component provides a powerful, keyboard-driven interface for navigating hierarchical data structures. It supports asynchronous data loading, breadcrumb navigation, and both single-item and list-based data fetching.
+
+## Props
+
+<ParamField path="items" type="CommandDataItem[]" required>
+  Array of root-level command items to display. Each item can have nested children loaded dynamically.
+  
+  See [CommandDataItem](/api/command-data-item) for detailed interface documentation.
+</ParamField>
+
+<ParamField path="onClose" type="() => void">
+  Callback function invoked when the command palette should close. Typically called after a user selects an item with `onSelect`.
+  
+  ```tsx
+  <DataCommand
+    items={items}
+    onClose={() => setOpen(false)}
+  />
+  ```
+</ParamField>
+
+<ParamField path="defaultPath" type="string[]" default="[]">
+  Array of item values representing the initial navigation path. Useful for deep-linking or restoring previous navigation state.
+  
+  ```tsx
+  // Start navigation at Users > John Doe
+  <DataCommand
+    items={items}
+    defaultPath={['users', 'john-doe']}
+  />
+  ```
+</ParamField>
+
+## Behavior
+
+### Keyboard Navigation
+
+- **Tab**: Navigate into an item with `loadItems` to view its children
+- **Enter**: Select the focused item (calls `onSelect` and `onClose`)
+- **Backspace**: Navigate back to parent level when search is empty
+- **Arrow keys**: Move focus between items
+- **Type**: Filter items by label
+
+### Data Loading
+
+The component intelligently manages async data loading:
+
+- **List loading**: When navigating into an item with `loadItems`, all children are fetched
+- **Single item loading**: When using `defaultPath` with `loadOneItem`, items are fetched individually
+- **Caching**: Loaded data is cached to prevent redundant requests
+- **Search integration**: Search queries are passed to `loadItems` for server-side filtering
+
+### Visual Feedback
+
+- Breadcrumb navigation shows the current path
+- Loading spinners indicate async operations
+- Badge indicators show available actions (Tab, Enter)
+- Search placeholder adapts to current context
+
+## Example
+
+```tsx
+import { DataCommand, CommandDataItem } from '@/components/data-command'
+
+const items: CommandDataItem[] = [
+  {
+    label: 'Users',
+    value: 'users',
+    icon: <UsersIcon />,
+    searchPlaceholder: 'Search users...',
+    loadItems: async ({ search }) => {
+      const users = await fetchUsers(search)
+      return users.map(user => ({
+        label: user.name,
+        value: user.id,
+        icon: <UserIcon />,
+        onSelect: () => console.log('Selected user:', user.id),
+        loadItems: async () => {
+          // Load user's projects
+          const projects = await fetchUserProjects(user.id)
+          return projects.map(project => ({
+            label: project.name,
+            value: project.id,
+            onSelect: () => navigateToProject(project.id)
+          }))
+        }
+      }))
+    }
+  },
+  {
+    label: 'Settings',
+    value: 'settings',
+    icon: <SettingsIcon />,
+    onSelect: () => navigateToSettings()
+  }
+]
+
+function App() {
+  const [open, setOpen] = useState(false)
+  
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent>
+        <DataCommand
+          items={items}
+          onClose={() => setOpen(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+```
+
+## Related
+
+- [CommandDataItem Interface](/api/command-data-item) - Item configuration reference
+- [Complete Props Reference](/api/props) - All API surface types
+- [Simple Example](/examples/simple) - Simple usage example
+- [API Loading Example](/examples/api-loading) - Async data patterns

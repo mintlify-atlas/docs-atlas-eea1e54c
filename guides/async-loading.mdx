@@ -1,0 +1,432 @@
+---
+title: Async Loading
+description: Learn how to load data asynchronously with loadItems and loadOneItem for efficient data fetching in your command menus
+---
+
+The Data Command component is built for async-first workflows. It provides two powerful functions for loading data on-demand: `loadItems` for fetching lists and `loadOneItem` for lazy loading individual items.
+
+## The loadItems Function
+
+The `loadItems` function is called when:
+1. Users drill into an item (press **Tab**)
+2. The search query changes
+3. Navigating to a level with the `defaultPath` prop
+
+### Function Signature
+
+```tsx
+type FetchCommandDataSubItems = (props: {
+  search: string;
+}) => Promise<CommandDataItem[]>;
+
+interface CommandDataItem {
+  loadItems?: FetchCommandDataSubItems;
+  // ... other properties
+}
+```
+
+The `search` parameter contains the current search query, allowing you to filter results server-side.
+
+### Basic Example
+
+```tsx
+import { DataCommand, CommandDataItem } from "@/components/data-command";
+import { Folder } from "lucide-react";
+
+const items: CommandDataItem[] = [
+  {
+    icon: <Folder />,
+    label: "Projects",
+    value: "projects",
+    loadItems: async ({ search }) => {
+      // Fetch projects from your API
+      const response = await fetch(`/api/projects?q=${search}`);
+      const projects = await response.json();
+      
+      return projects.map(project => ({
+        label: project.name,
+        value: project.id,
+        onSelect: () => openProject(project.id),
+      }));
+    },
+  },
+];
+```
+
+### How It Works Internally
+
+```tsx
+// From data-command.tsx:162-174
+if (
+  currentItem.loadItems &&
+  !(commandHistory[key]?.fetch_type === "list") &&
+  !fetching.current.get(key) &&
+  (isLastItem || !currentItem.loadOneItem)
+) {
+  appendCommandHistory({
+    key,
+    value: { isLoading: true, fetch_type: "list" },
+  });
+  currentItem
+    .loadItems({ search })
+    .then((children) => {
+      const childAddresses = addComandItemsToMap(chainKey, children);
+      appendCommandHistory({
+        key,
+        value: {
+          list: childAddresses,
+          isLoading: false,
+          fetch_type: "list",
+        },
+      });
+    })
+    .catch(() => {
+      appendCommandHistory({
+        key,
+        value: { isLoading: false, fetch_type: "list" },
+      });
+    });
+}
+```
+
+The component:
+1. Sets loading state before calling `loadItems`
+2. Caches results by key to avoid redundant fetches
+3. Handles errors gracefully
+4. Updates the UI when data arrives
+
+<Note>
+  Results are cached per key (which includes the search query). The same items won't be fetched twice unless the search changes.
+</Note>
+
+## The loadOneItem Function
+
+The `loadOneItem` function enables lazy loading of specific items when navigating with `defaultPath`. This is useful for deep linking or restoring navigation state.
+
+### Function Signature
+
+```tsx
+interface CommandDataItem {
+  loadOneItem?: (key: string) => Promise<CommandDataItem>;
+  // ... other properties
+}
+```
+
+### Use Case: Deep Linking
+
+Imagine a URL like `/projects/project_2` that should open the command menu directly to a specific project's files:
+
+```tsx
+import { DataCommand } from "@/components/data-command";
+import { Folder, File } from "lucide-react";
+
+const parseProject = (project: Project): CommandDataItem => ({
+  label: project.name,
+  value: project.id,
+  icon: <Folder />,
+  loadItems: async () =>
+    project.files.map((file) => ({
+      label: file,
+      value: file,
+      icon: <File />,
+      onSelect: () => openFile(file),
+    })),
+});
+
+<DataCommand
+  items={[
+    {
+      icon: <Folder />,
+      label: "Projects",
+      value: "projects",
+      loadItems: async ({ search }) => {
+        const projects = await fetchProjects(search);
+        return projects.map(parseProject);
+      },
+      // Load a single project by ID without fetching all projects
+      loadOneItem: async (projectId) => {
+        const project = await fetchOneProject(projectId);
+        return parseProject(project);
+      },
+    },
+  ]}
+  // Start at project_2 directly
+  defaultPath={["projects", "project_2"]}
+/>;
+```
+
+<Steps>
+  <Step title="Component mounts with defaultPath">
+    `defaultPath={["projects", "project_2"]}` tells the component to navigate to `project_2`
+  </Step>
+  <Step title="Component looks for project_2 in cache">
+    It doesn't exist yet since we haven't loaded all projects
+  </Step>
+  <Step title="loadOneItem is called">
+    `loadOneItem("project_2")` fetches just that one project
+  </Step>
+  <Step title="Project is added to cache">
+    The loaded project is cached and displayed with its files
+  </Step>
+</Steps>
+
+### How It Works Internally
+
+```tsx
+// From data-command.tsx:104-132
+if (!currentItem) {
+  if (
+    lastItem?.loadOneItem &&
+    !commandHistory[prevKey] &&
+    !fetching.current.get(prevKey)
+  ) {
+    appendCommandHistory({
+      key: prevKey,
+      value: { isLoading: true, fetch_type: "one" },
+    });
+    lastItem
+      .loadOneItem(curr)
+      .then((item) => {
+        const address = addCommandItemToMap(chainKey, item);
+        appendCommandHistory({
+          key: prevKey,
+          value: {
+            list: [address],
+            isLoading: false,
+            fetch_type: "one",
+          },
+        });
+      })
+      .catch(() => {
+        appendCommandHistory({
+          key: prevKey,
+          value: { isLoading: false, fetch_type: "one" },
+        });
+      });
+  }
+}
+```
+
+## Loading States and Error Handling
+
+The component provides built-in loading states and error handling:
+
+### Loading Indicator
+
+```tsx
+// From data-command.tsx:323-329
+{refinedChain.isLoading ? (
+  <LoaderIcon className="animate-spin text-center mx-auto mt-6 mb-8 size-6" />
+) : (
+  <CommandEmpty className="flex flex-col items-center p-5 gap-2 text-gray-500">
+    <p>No results</p>
+  </CommandEmpty>
+)}
+```
+
+While `loadItems` or `loadOneItem` is executing, a spinner is displayed.
+
+### Empty State
+
+When no results are returned, an empty state is shown.
+
+### Error Handling
+
+Errors in `loadItems` or `loadOneItem` are caught automatically:
+
+```tsx
+.catch(() => {
+  appendCommandHistory({
+    key,
+    value: { isLoading: false, fetch_type: "list" },
+  });
+});
+```
+
+The loading state is cleared, and the component shows the empty state.
+
+<Tip>
+  You can enhance error handling by showing toast notifications or error messages in your `loadItems` implementation.
+</Tip>
+
+## Best Practices for API Integration
+
+### 1. Debounce Search Queries
+
+Avoid making API calls on every keystroke:
+
+```tsx
+import { useState, useEffect } from "react";
+import { useDebounce } from "use-debounce";
+
+function useSearchProjects(search: string) {
+  const [debouncedSearch] = useDebounce(search, 300);
+  const [results, setResults] = useState([]);
+
+  useEffect(() => {
+    fetchProjects(debouncedSearch).then(setResults);
+  }, [debouncedSearch]);
+
+  return results;
+}
+```
+
+### 2. Use TanStack Query for Caching
+
+The project includes `@tanstack/react-query` in its dependencies. Leverage it for better caching and state management:
+
+```tsx
+import { useQuery } from "@tanstack/react-query";
+
+const items = [
+  {
+    label: "Projects",
+    value: "projects",
+    loadItems: async ({ search }) => {
+      // TanStack Query will cache this and handle deduplication
+      const { data } = await queryClient.fetchQuery({
+        queryKey: ['projects', search],
+        queryFn: () => fetchProjects(search),
+      });
+      return data.map(parseProject);
+    },
+  },
+];
+```
+
+<Info>
+  TanStack Query provides automatic caching, background refetching, and request deduplication out of the box.
+</Info>
+
+### 3. Handle Loading States Gracefully
+
+Provide feedback during long-running requests:
+
+```tsx
+loadItems: async ({ search }) => {
+  try {
+    const projects = await fetchProjects(search);
+    return projects.map(parseProject);
+  } catch (error) {
+    console.error('Failed to load projects:', error);
+    toast.error('Failed to load projects');
+    return [];
+  }
+}
+```
+
+### 4. Optimize for Search Performance
+
+Implement server-side filtering:
+
+```tsx
+loadItems: async ({ search }) => {
+  // Server filters results
+  const projects = await fetch(
+    `/api/projects?q=${encodeURIComponent(search)}`
+  ).then(r => r.json());
+  
+  return projects.map(parseProject);
+}
+```
+
+This is more efficient than loading all items and filtering client-side.
+
+### 5. Paginate Large Datasets
+
+For large result sets, consider pagination:
+
+```tsx
+loadItems: async ({ search }) => {
+  const response = await fetch(
+    `/api/projects?q=${search}&limit=50`
+  );
+  const { projects, hasMore } = await response.json();
+  
+  const items = projects.map(parseProject);
+  
+  // Add a "Load more" item if there are more results
+  if (hasMore) {
+    items.push({
+      label: "Load more...",
+      value: "load-more",
+      onSelect: () => loadNextPage(),
+    });
+  }
+  
+  return items;
+}
+```
+
+## Real-World Example
+
+Here's a complete example integrating async loading with error handling:
+
+```tsx
+import { DataCommand } from "@/components/data-command";
+import { Folder, File } from "lucide-react";
+import { toast } from "sonner";
+
+export function ProjectNavigator() {
+  return (
+    <DataCommand
+      items={[
+        {
+          icon: <Folder />,
+          label: "Projects",
+          value: "projects",
+          searchPlaceholder: "Search projects...",
+          loadItems: async ({ search }) => {
+            try {
+              const projects = await fetchProjects(search);
+              return projects.map((project) => ({
+                label: project.name,
+                value: project.id,
+                icon: <Folder />,
+                searchPlaceholder: `Search files in ${project.name}...`,
+                loadItems: async () => {
+                  const files = await fetchProjectFiles(project.id);
+                  return files.map((file) => ({
+                    label: file.name,
+                    value: file.id,
+                    icon: <File />,
+                    onSelect: () => openFile(file.id),
+                  }));
+                },
+              }));
+            } catch (error) {
+              toast.error("Failed to load projects");
+              return [];
+            }
+          },
+          loadOneItem: async (projectId) => {
+            const project = await fetchOneProject(projectId);
+            return {
+              label: project.name,
+              value: project.id,
+              icon: <Folder />,
+              loadItems: async () => {
+                const files = await fetchProjectFiles(project.id);
+                return files.map((file) => ({
+                  label: file.name,
+                  value: file.id,
+                  icon: <File />,
+                  onSelect: () => openFile(file.id),
+                }));
+              },
+            };
+          },
+          onSelect: () => navigate("/projects"),
+        },
+      ]}
+    />
+  );
+}
+```
+
+## Related Resources
+
+- [Nested Commands Guide](/guides/nested-commands) - Learn about hierarchical navigation
+- [API Loading Example](/examples/api-loading) - See async loading in action
+- [CommandDataItem API](/api/command-data-item) - Full interface documentation
+- [TanStack Query Docs](https://tanstack.com/query/latest) - Learn about advanced caching patterns

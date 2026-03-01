@@ -1,0 +1,173 @@
+---
+title: "Simple Example"
+description: "Learn how to create a basic DataCommand with static items and nested navigation"
+---
+
+## Overview
+
+This example demonstrates the fundamental usage of DataCommand with static items, nested navigation, and selection callbacks. It's perfect for getting started with simple command palettes that don't require external data.
+
+## Full Code Example
+
+```tsx
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { DialogTrigger } from "@radix-ui/react-dialog";
+import { BanknoteIcon, SettingsIcon, User } from "lucide-react";
+import { DataCommand } from "../../components/data-command";
+
+export default function SimpleExample() {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button>Search Site</Button>
+      </DialogTrigger>
+      <DialogContent className="p-0">
+        <DialogTitle className="sr-only">Site Search</DialogTitle>
+        <DataCommand
+          items={[
+            {
+              icon: <User />,
+              label: "Profile",
+              value: "profile",
+              loadItems: async () => [
+                {
+                  label: "Settings",
+                  value: "settings",
+                  icon: <SettingsIcon />,
+                  onSelect: () => alert("You have selected: profile/settings"),
+                },
+              ],
+            },
+            {
+              icon: <BanknoteIcon />,
+              label: "Billing",
+              value: "billing",
+              onSelect: () => alert("You have selected: billing"),
+            },
+          ]}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+## Step-by-Step Explanation
+
+### 1. Dialog Setup
+
+The example uses a Dialog component to contain the DataCommand. This is a common pattern that provides a modal overlay for the command palette:
+
+```tsx
+<Dialog>
+  <DialogTrigger asChild>
+    <Button>Search Site</Button>
+  </DialogTrigger>
+  <DialogContent className="p-0">
+    <DialogTitle className="sr-only">Site Search</DialogTitle>
+    <DataCommand {...} />
+  </DialogContent>
+</Dialog>
+```
+
+<Note>
+  The `className="p-0"` on DialogContent removes default padding, allowing DataCommand to fill the entire dialog area.
+</Note>
+
+### 2. Static Items Array
+
+The `items` prop accepts an array of command items. Each item can have:
+
+- **icon**: A React element (typically from lucide-react)
+- **label**: The display text shown to users
+- **value**: A unique identifier for the item
+- **onSelect**: Optional callback when the item is selected
+- **loadItems**: Optional function to load nested items
+
+```tsx
+{
+  icon: <BanknoteIcon />,
+  label: "Billing",
+  value: "billing",
+  onSelect: () => alert("You have selected: billing"),
+}
+```
+
+### 3. Nested Items with loadItems
+
+The `loadItems` function enables hierarchical navigation. When a user selects an item with `loadItems`, the command palette navigates into that item and displays its children:
+
+```tsx
+{
+  icon: <User />,
+  label: "Profile",
+  value: "profile",
+  loadItems: async () => [
+    {
+      label: "Settings",
+      value: "settings",
+      icon: <SettingsIcon />,
+      onSelect: () => alert("You have selected: profile/settings"),
+    },
+  ],
+}
+```
+
+In this example:
+1. User sees "Profile" in the initial list
+2. When selected, DataCommand calls `loadItems()`
+3. The "Settings" item appears as a child of "Profile"
+4. User can select "Settings" to trigger its `onSelect` callback
+
+<Note>
+  `loadItems` is an async function, allowing you to load nested items dynamically. In this simple example, we return static data, but you could fetch from an API here.
+</Note>
+
+### 4. Selection Callbacks
+
+The `onSelect` callback is triggered when a user selects an item. This is where you handle navigation, state updates, or other actions:
+
+```tsx
+onSelect: () => alert("You have selected: billing")
+```
+
+In a real application, you might:
+- Navigate to a different page: `router.push('/billing')`
+- Update component state: `setSelectedItem('billing')`
+- Trigger a modal or drawer
+- Execute a command or action
+
+## Using DataCommand with Dialog
+
+<Tip>
+  DataCommand works perfectly with any Dialog component. The recommended pattern is:
+  
+  1. Set `className="p-0"` on DialogContent to remove padding
+  2. Add a `DialogTitle` with `className="sr-only"` for accessibility
+  3. Place DataCommand directly inside DialogContent
+</Tip>
+
+This pattern ensures:
+- Proper accessibility with screen readers
+- Clean visual presentation without extra spacing
+- Modal behavior with overlay and focus management
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Loading Example" icon="cloud" href="/examples/api-loading">
+    Learn how to load items from an API with search functionality
+  </Card>
+  <Card title="Default Chain Example" icon="link" href="/examples/default-chain">
+    Pre-fill command chains for deep linking
+  </Card>
+</CardGroup>
+
+## Related Guides
+
+- [Nested Commands Guide](/guides/nested-commands) - Understanding items, paths, and navigation
+- [Async Loading Guide](/guides/async-loading) - Complete loadItems API documentation
+- [CommandDataItem API](/api/command-data-item) - Complete onSelect API documentation

@@ -1,0 +1,64 @@
+---
+title: Installation
+description: Install Data Command into your React project using the shadcn CLI
+---
+
+# Installation
+
+Data Command is distributed as a shadcn/ui component and can be installed using the shadcn CLI.
+
+<Steps>
+  <Step title="Install using shadcn CLI">
+    Run the following command in your project directory:
+
+    <CodeGroup>
+    ```bash pnpm
+    pnpm dlx shadcn@latest add https://data-command.davidsling.in/r/data-command.json
+    ```
+
+    ```bash npm
+    npx shadcn@latest add https://data-command.davidsling.in/r/data-command.json
+    ```
+
+    ```bash yarn
+    yarn dlx shadcn@latest add https://data-command.davidsling.in/r/data-command.json
+    ```
+
+    ```bash bun
+    bunx shadcn@latest add https://data-command.davidsling.in/r/data-command.json
+    ```
+    </CodeGroup>
+
+    This will add the Data Command component to your `components` directory.
+  </Step>
+
+  <Step title="Verify dependencies">
+    The component requires the following dependencies, which should be automatically installed:
+
+    - `cmdk` - Command palette primitive
+    - `@radix-ui/react-dialog` - Dialog component (if using in a modal)
+    - `lucide-react` - Icon library (optional, for icons)
+    
+    If you're using shadcn/ui, these are likely already in your project.
+  </Step>
+
+  <Step title="Import and use">
+    Import the component in your React files:
+
+    ```tsx
+    import { DataCommand } from "@/components/data-command";
+    ```
+
+    You're ready to start building!
+  </Step>
+</Steps>
+
+<Note>
+  Data Command is built on top of shadcn/ui. Make sure you have [shadcn/ui set up](https://ui.shadcn.com/docs/installation) in your project before installing.
+</Note>
+
+## Next steps
+
+<Card title="Quick start" icon="rocket" href="/quickstart">
+  Get a working command palette in minutes
+</Card>

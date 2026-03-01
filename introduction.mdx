@@ -1,0 +1,87 @@
+---
+title: Introduction
+description: A data-driven command palette for React, built on top of shadcn/ui. Load items dynamically from APIs and handle nested selections with ease.
+---
+
+# What is Data Command?
+
+Data Command is a **data-driven command palette** for React, built on top of [shadcn/ui](https://ui.shadcn.com). It lets you load items from APIs, handle nested selections, and build anything from simple dropdowns to complex command menus.
+
+Unlike traditional command palettes with static items, Data Command is designed for **dynamic, asynchronous data** - perfect for search interfaces, navigation menus, and interactive command bars.
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Data-driven" icon="database">
+    Load items dynamically from an API or local JSON. Built for async data loading out of the box.
+  </Card>
+  <Card title="Nested commands" icon="folder-tree">
+    Prefill and drill down into nested command items with keyboard navigation support.
+  </Card>
+  <Card title="Built with shadcn/ui" icon="palette">
+    Leverages shadcn/ui components for a polished, customizable interface.
+  </Card>
+  <Card title="Keyboard-first" icon="keyboard">
+    Full keyboard navigation with Tab to drill down, Backspace to go back, and Enter to select.
+  </Card>
+  <Card title="Instant search" icon="search">
+    Search through items with built-in filtering and custom search placeholders.
+  </Card>
+  <Card title="Easy integration" icon="plug">
+    Drop into any React project with minimal setup and configuration.
+  </Card>
+</CardGroup>
+
+## Quick example
+
+Here's a simple Data Command with nested items:
+
+```tsx
+import { DataCommand } from "@/components/data-command";
+import { User, SettingsIcon, BanknoteIcon } from "lucide-react";
+
+function Example() {
+  return (
+    <DataCommand
+      items={[
+        {
+          icon: <User />,
+          label: "Profile",
+          value: "profile",
+          loadItems: async () => [
+            {
+              label: "Settings",
+              value: "settings",
+              icon: <SettingsIcon />,
+              onSelect: () => alert("You have selected: profile/settings"),
+            },
+          ],
+        },
+        {
+          icon: <BanknoteIcon />,
+          label: "Billing",
+          value: "billing",
+          onSelect: () => alert("You have selected: billing"),
+        },
+      ]}
+    />
+  );
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install Data Command using the shadcn CLI
+  </Card>
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Get a working command palette in minutes
+  </Card>
+  <Card title="Simple example" icon="code" href="/examples/simple">
+    See a complete working example with Dialog integration
+  </Card>
+  <Card title="API reference" icon="book" href="/api/data-command">
+    Explore all available props and types
+  </Card>
+</CardGroup>

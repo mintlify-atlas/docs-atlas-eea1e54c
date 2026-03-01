@@ -1,0 +1,197 @@
+---
+title: Complete Props Reference
+description: Comprehensive API reference for all Data Command types and interfaces
+---
+
+## Overview
+
+This page documents all public types, interfaces, and function signatures for the Data Command component.
+
+## DataCommand Props
+
+### Component Signature
+
+```tsx
+const DataCommand: FC<{
+  items: CommandDataItem[];
+  onClose?: () => void;
+  defaultPath?: string[];
+}>
+```
+
+### Props Table
+
+| Prop | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `items` | `CommandDataItem[]` | Yes | - | Root-level items to display |
+| `onClose` | `() => void` | No | `undefined` | Callback when palette should close |
+| `defaultPath` | `string[]` | No | `[]` | Initial navigation path |
+
+## CommandDataItem Interface
+
+### Interface Definition
+
+```tsx
+interface CommandDataItem {
+  label: ReactNode;
+  value: string;
+  loadItems?: FetchCommandDataSubItems;
+  loadOneItem?: (_key: string) => Promise<CommandDataItem>;
+  onSelect?: () => void;
+  icon?: ReactNode;
+  searchPlaceholder?: string;
+}
+```
+
+### Properties Table
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `label` | `ReactNode` | Yes | Display content for the item |
+| `value` | `string` | Yes | Unique identifier |
+| `loadItems` | `FetchCommandDataSubItems` | No | Async function to load child items |
+| `loadOneItem` | `(_key: string) => Promise<CommandDataItem>` | No | Async function to load single item by key |
+| `onSelect` | `() => void` | No | Callback when item is selected |
+| `icon` | `ReactNode` | No | Icon element |
+| `searchPlaceholder` | `string` | No | Custom search placeholder |
+
+## Type Definitions
+
+### FetchCommandDataSubItems
+
+Function type for loading child items with search support.
+
+```tsx
+type FetchCommandDataSubItems = (_props: {
+  search: string;
+}) => Promise<CommandDataItem[]>
+```
+
+**Parameters:**
+- `_props.search` (string): Current search query for filtering
+
+**Returns:**
+- `Promise<CommandDataItem[]>`: Array of child items
+
+**Example:**
+```tsx
+const loadUsers: FetchCommandDataSubItems = async ({ search }) => {
+  const response = await fetch(`/api/users?q=${search}`)
+  const users = await response.json()
+  return users.map(user => ({
+    label: user.name,
+    value: user.id,
+    onSelect: () => selectUser(user.id)
+  }))
+}
+```
+
+### CommandHistoryItem
+
+Internal interface for managing navigation history state. Not typically used directly by consumers.
+
+```tsx
+interface CommandHistoryItem {
+  list?: string[];
+  isLoading?: boolean;
+  fetch_type: "list" | "one";
+}
+```
+
+**Properties:**
+- `list`: Array of item keys loaded at this history point
+- `isLoading`: Loading state indicator
+- `fetch_type`: Type of fetch operation ("list" for `loadItems`, "one" for `loadOneItem`)
+
+## Complete TypeScript Example
+
+```tsx
+import { FC, useState } from 'react'
+import { DataCommand, CommandDataItem, FetchCommandDataSubItems } from '@/components/data-command'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { FolderIcon, FileIcon } from 'lucide-react'
+
+// Type-safe item loader
+const loadProjects: FetchCommandDataSubItems = async ({ search }) => {
+  const projects = await api.projects.search(search)
+  return projects.map(project => ({
+    label: project.name,
+    value: project.id,
+    icon: <FolderIcon className="w-4 h-4" />,
+    searchPlaceholder: `Search files in ${project.name}...`,
+    onSelect: () => {
+      window.location.href = `/projects/${project.id}`
+    },
+    loadItems: async ({ search }) => {
+      const files = await api.files.search(project.id, search)
+      return files.map(file => ({
+        label: file.name,
+        value: file.id,
+        icon: <FileIcon className="w-4 h-4" />,
+        onSelect: () => {
+          openFile(file.id)
+        }
+      }))
+    }
+  }))
+}
+
+// Root items configuration
+const rootItems: CommandDataItem[] = [
+  {
+    label: 'Projects',
+    value: 'projects',
+    icon: <FolderIcon />,
+    searchPlaceholder: 'Search projects...',
+    loadItems: loadProjects
+  },
+  {
+    label: 'Settings',
+    value: 'settings',
+    onSelect: () => {
+      window.location.href = '/settings'
+    }
+  }
+]
+
+// Component usage
+const App: FC = () => {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent>
+        <DataCommand
+          items={rootItems}
+          onClose={() => setOpen(false)}
+          defaultPath={[]} // Start at root
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export default App
+```
+
+## Import Paths
+
+```tsx
+// Import component and types
+import { 
+  DataCommand,
+  CommandDataItem,
+  FetchCommandDataSubItems,
+  CommandHistoryItem
+} from '@/components/data-command'
+
+// Or with custom path
+import { DataCommand } from '@/registry/data-command/components/data-command'
+```
+
+## Related
+
+- [DataCommand Component](/api/data-command) - Main component reference
+- [CommandDataItem Interface](/api/command-data-item) - Detailed item documentation
+- [Simple Example](/examples/simple) - Simple usage
+- [Default Chain Example](/examples/default-chain) - Complex configurations

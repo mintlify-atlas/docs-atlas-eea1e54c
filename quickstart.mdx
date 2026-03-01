@@ -1,80 +1,195 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick start
+description: Get a working Data Command in your app in minutes
 ---
 
-## Get started in three steps
+# Quick start
 
-Get your documentation site running locally and make your first customization.
+This guide will help you create your first Data Command with nested items and async loading.
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Create a basic command palette">
+    Start with a simple command palette wrapped in a Dialog:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```tsx
+    "use client";
 
-### Step 2: Deploy your changes
+    import { Button } from "@/components/ui/button";
+    import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+    import { DialogTrigger } from "@radix-ui/react-dialog";
+    import { DataCommand } from "@/components/data-command";
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    export default function App() {
+      return (
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>Search Site</Button>
+          </DialogTrigger>
+          <DialogContent className="p-0">
+            <DialogTitle className="sr-only">Site Search</DialogTitle>
+            <DataCommand items={[]} />
+          </DialogContent>
+        </Dialog>
+      );
+    }
+    ```
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Add items with icons">
+    Add some static items to your command palette:
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```tsx
+    import { User, BanknoteIcon } from "lucide-react";
 
-### Step 3: Go live
+    <DataCommand
+      items={[
+        {
+          icon: <User />,
+          label: "Profile",
+          value: "profile",
+          onSelect: () => console.log("Profile selected"),
+        },
+        {
+          icon: <BanknoteIcon />,
+          label: "Billing",
+          value: "billing",
+          onSelect: () => console.log("Billing selected"),
+        },
+      ]}
+    />
+    ```
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    Each item needs:
+    - `label` - What the user sees
+    - `value` - Unique identifier for the item
+    - `onSelect` - Callback when the item is selected (optional)
+    - `icon` - Icon to display (optional)
+  </Step>
+
+  <Step title="Add nested items with loadItems">
+    Make items expandable by adding a `loadItems` function:
+
+    ```tsx
+    import { SettingsIcon } from "lucide-react";
+
+    <DataCommand
+      items={[
+        {
+          icon: <User />,
+          label: "Profile",
+          value: "profile",
+          loadItems: async () => [
+            {
+              label: "Settings",
+              value: "settings",
+              icon: <SettingsIcon />,
+              onSelect: () => alert("You have selected: profile/settings"),
+            },
+          ],
+        },
+      ]}
+    />
+    ```
+
+    Users can press **Tab** to drill down into nested items, or **Backspace** to go back up.
+  </Step>
+
+  <Step title="Add close behavior">
+    Use the `onClose` prop to close the dialog when an item is selected:
+
+    ```tsx
+    export default function App() {
+      const [open, setOpen] = useState(false);
+
+      return (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button>Search Site</Button>
+          </DialogTrigger>
+          <DialogContent className="p-0">
+            <DialogTitle className="sr-only">Site Search</DialogTitle>
+            <DataCommand
+              items={[/* ... */]}
+              onClose={() => setOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      );
+    }
+    ```
+
+    The command palette will automatically call `onClose` when a user selects an item with `onSelect`.
+  </Step>
+</Steps>
+
+## Complete example
+
+Here's everything together:
+
+```tsx
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { DialogTrigger } from "@radix-ui/react-dialog";
+import { BanknoteIcon, SettingsIcon, User } from "lucide-react";
+import { DataCommand } from "@/components/data-command";
+
+export default function App() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>Search Site</Button>
+      </DialogTrigger>
+      <DialogContent className="p-0">
+        <DialogTitle className="sr-only">Site Search</DialogTitle>
+        <DataCommand
+          items={[
+            {
+              icon: <User />,
+              label: "Profile",
+              value: "profile",
+              loadItems: async () => [
+                {
+                  label: "Settings",
+                  value: "settings",
+                  icon: <SettingsIcon />,
+                  onSelect: () => alert("You have selected: profile/settings"),
+                },
+              ],
+            },
+            {
+              icon: <BanknoteIcon />,
+              label: "Billing",
+              value: "billing",
+              onSelect: () => alert("You have selected: billing"),
+            },
+          ]}
+          onClose={() => setOpen(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+<Tip>
+  Press **Tab** to drill down into nested items, **Backspace** to go back, and **Enter** to select the current item.
+</Tip>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Simple example" icon="code" href="/examples/simple">
+    See more working examples with different patterns
+  </Card>
+  <Card title="Nested commands guide" icon="folder-tree" href="/guides/nested-commands">
+    Learn how to build complex nested command structures
+  </Card>
+  <Card title="API reference" icon="book" href="/api/data-command">
+    Explore all available props and configuration options
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

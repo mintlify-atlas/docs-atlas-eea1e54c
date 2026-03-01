@@ -1,0 +1,244 @@
+---
+title: "API Loading Example"
+description: "Learn how to load items dynamically from an API with search functionality"
+---
+
+## Overview
+
+This example demonstrates how to fetch data from an API using the `loadItems` function with search parameters. It's ideal for command palettes that need to display dynamic data like projects, files, or database records.
+
+## Full Code Example
+
+```tsx
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { DialogTrigger } from "@radix-ui/react-dialog";
+import { File, Folder } from "lucide-react";
+import { CommandDataItem, DataCommand } from "../../components/data-command";
+import { fetchProjects, Project } from "../../api/projects";
+
+const parseProject = (project: Project): CommandDataItem => ({
+  label: project.name,
+  value: project.id,
+  icon: <Folder />,
+  loadItems: async () =>
+    project.files.map((file) => ({
+      label: file,
+      value: file,
+      icon: <File />,
+      onSelect: () => alert("Selected file: " + file),
+    })),
+});
+
+export default function ApiExample() {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button>View Projects</Button>
+      </DialogTrigger>
+      <DialogContent className="p-0">
+        <DialogTitle className="sr-only">View Projects</DialogTitle>
+        <DataCommand
+          items={[
+            {
+              icon: <Folder />,
+              label: "Projects",
+              value: "projects",
+              loadItems: async ({ search }) => {
+                const projects = await fetchProjects(search);
+                return projects.map(parseProject);
+              },
+              onSelect: () => alert("Redirect to projects page"),
+            },
+          ]}
+          defaultPath={["projects"]}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+## API Fetch Function
+
+Here's the API function used to fetch projects with search filtering:
+
+```tsx
+const projects: Project[] = [
+  {
+    name: "Website",
+    id: "project_1",
+    files: ["index.html", "styles.css"],
+  },
+  {
+    name: "Scraper",
+    id: "project_2",
+    files: ["script.go", ".env.example"],
+  },
+  {
+    name: "Scraper 2",
+    id: "project_3",
+    files: ["script.py", ".env.example"],
+  },
+  {
+    name: "Server",
+    id: "project_4",
+    files: ["app.py", "routes.py", ".env.example"],
+  },
+];
+
+export const fetchProjects = async (search: string) => {
+  return new Promise<Project[]>((resolve) => {
+    setTimeout(() => {
+      resolve(
+        projects.filter(
+          (item) =>
+            !search || item.name.toLowerCase().includes(search.toLowerCase())
+        )
+      );
+    }, 500);
+  });
+};
+
+export interface Project {
+  name: string;
+  id: string;
+  files: string[];
+}
+```
+
+## Key Concepts
+
+### loadItems with Search Parameter
+
+The `loadItems` function receives a context object containing the current search query. This enables real-time filtering as users type:
+
+```tsx
+loadItems: async ({ search }) => {
+  const projects = await fetchProjects(search);
+  return projects.map(parseProject);
+}
+```
+
+**How it works:**
+
+1. User opens the command palette and navigates to "Projects"
+2. As the user types in the search input, `loadItems` is called with the search value
+3. The API filters results based on the search query
+4. DataCommand displays the filtered results in real-time
+
+<Note>
+  The `search` parameter is automatically debounced by DataCommand to avoid excessive API calls while typing.
+</Note>
+
+### defaultPath Prop
+
+The `defaultPath` prop automatically navigates into a specific item when the command palette opens:
+
+```tsx
+<DataCommand
+  items={[...]}
+  defaultPath={["projects"]}
+/>
+```
+
+Instead of showing the top-level items, the command palette immediately:
+1. Navigates to the "projects" item
+2. Calls its `loadItems` function
+3. Displays the projects list
+
+This is useful when you want to skip the initial navigation step and go directly to a specific view.
+
+<Tip>
+  Use `defaultPath` when you have a single primary action or want to create a focused command palette that only shows specific data.
+</Tip>
+
+### Helper Functions for Data Parsing
+
+The `parseProject` helper function transforms API data into the `CommandDataItem` format:
+
+```tsx
+const parseProject = (project: Project): CommandDataItem => ({
+  label: project.name,
+  value: project.id,
+  icon: <Folder />,
+  loadItems: async () =>
+    project.files.map((file) => ({
+      label: file,
+      value: file,
+      icon: <File />,
+      onSelect: () => alert("Selected file: " + file),
+    })),
+});
+```
+
+This pattern:
+- Keeps your code DRY (Don't Repeat Yourself)
+- Provides type safety with TypeScript
+- Makes it easy to add nested navigation (files within projects)
+- Centralizes the mapping logic
+
+## Async Data Fetching Patterns
+
+<Tip>
+  **Best Practices for API Loading:**
+  
+  1. **Add loading states**: DataCommand handles loading states automatically while `loadItems` is executing
+  2. **Implement error handling**: Wrap API calls in try-catch blocks and return empty arrays on error
+  3. **Debounce search**: DataCommand debounces search input by default
+  4. **Cache results**: Consider caching API responses to reduce network requests
+  5. **Abort stale requests**: Use AbortController to cancel outdated requests when search changes
+</Tip>
+
+### Error Handling Example
+
+```tsx
+loadItems: async ({ search }) => {
+  try {
+    const projects = await fetchProjects(search);
+    return projects.map(parseProject);
+  } catch (error) {
+    console.error('Failed to fetch projects:', error);
+    return [];
+  }
+}
+```
+
+### Caching Example
+
+```tsx
+const cache = new Map();
+
+loadItems: async ({ search }) => {
+  const cacheKey = `projects:${search}`;
+  
+  if (cache.has(cacheKey)) {
+    return cache.get(cacheKey);
+  }
+  
+  const projects = await fetchProjects(search);
+  const items = projects.map(parseProject);
+  cache.set(cacheKey, items);
+  
+  return items;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Default Chain Example" icon="link" href="/examples/default-chain">
+    Learn about deep linking with defaultPath and loadOneItem
+  </Card>
+  <Card title="Simple Example" icon="sparkles" href="/examples/simple">
+    Back to basics with static items
+  </Card>
+</CardGroup>
+
+## Related Guides
+
+- [Async Loading Guide](/guides/async-loading) - Understanding async data loading
+- [CommandDataItem API](/api/command-data-item) - Complete loadItems and item API documentation
+- [DataCommand API](/api/data-command) - Complete defaultPath API documentation

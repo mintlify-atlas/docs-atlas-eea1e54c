@@ -1,0 +1,230 @@
+---
+title: CommandDataItem
+description: Interface for configuring individual items in the Data Command component
+---
+
+## Overview
+
+The `CommandDataItem` interface defines the structure for each item displayed in the Data Command palette. Items can be simple actions, hierarchical data with nested children, or dynamic data loaded asynchronously.
+
+## Properties
+
+<ParamField path="label" type="ReactNode" required>
+  The display content for the item. Can be a string, component, or any valid React node.
+  
+  ```tsx
+  // Simple text
+  { label: 'Dashboard' }
+  
+  // Rich content
+  { label: <span className="font-bold">Dashboard</span> }
+  
+  // With metadata
+  { 
+    label: (
+      <div>
+        <div>John Doe</div>
+        <div className="text-xs text-gray-500">john@example.com</div>
+      </div>
+    )
+  }
+  ```
+</ParamField>
+
+<ParamField path="value" type="string" required>
+  Unique identifier for the item. Used for navigation paths, selection tracking, and internal caching.
+  
+  Must be unique among siblings at the same level.
+  
+  ```tsx
+  { value: 'user-123' }
+  ```
+</ParamField>
+
+<ParamField path="loadItems" type="FetchCommandDataSubItems">
+  Async function to load child items when the user navigates into this item.
+  
+  **Type signature:**
+  ```tsx
+  type FetchCommandDataSubItems = (_props: {
+    search: string;
+  }) => Promise<CommandDataItem[]>
+  ```
+  
+  The `search` parameter contains the user's current search query for server-side filtering.
+  
+  ```tsx
+  {
+    label: 'Projects',
+    value: 'projects',
+    loadItems: async ({ search }) => {
+      const projects = await api.searchProjects(search)
+      return projects.map(p => ({
+        label: p.name,
+        value: p.id,
+        onSelect: () => openProject(p.id)
+      }))
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="loadOneItem" type="(_key: string) => Promise<CommandDataItem>">
+  Async function to load a single child item by its value/key. Used with `defaultPath` for deep-linking.
+  
+  When restoring navigation state, the component calls `loadOneItem` for each item in the path that isn't already loaded.
+  
+  ```tsx
+  {
+    label: 'Users',
+    value: 'users',
+    loadOneItem: async (userId) => {
+      const user = await api.getUser(userId)
+      return {
+        label: user.name,
+        value: user.id,
+        icon: <UserIcon />,
+        onSelect: () => openUserProfile(user.id)
+      }
+    },
+    loadItems: async ({ search }) => {
+      const users = await api.searchUsers(search)
+      return users.map(u => ({
+        label: u.name,
+        value: u.id,
+        onSelect: () => openUserProfile(u.id)
+      }))
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="onSelect" type="() => void">
+  Callback invoked when the user presses Enter on this item. After calling `onSelect`, the component automatically calls the `onClose` prop.
+  
+  ```tsx
+  {
+    label: 'Open Settings',
+    value: 'settings',
+    onSelect: () => {
+      router.push('/settings')
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="icon" type="ReactNode">
+  Icon or visual element displayed before the label.
+  
+  ```tsx
+  import { UserIcon } from 'lucide-react'
+  
+  {
+    label: 'User Profile',
+    value: 'profile',
+    icon: <UserIcon className="w-4 h-4" />
+  }
+  ```
+</ParamField>
+
+<ParamField path="searchPlaceholder" type="string">
+  Custom placeholder text for the search input when this item is active in the navigation breadcrumb.
+  
+  Defaults to "Search..." if not specified.
+  
+  ```tsx
+  {
+    label: 'Users',
+    value: 'users',
+    searchPlaceholder: 'Search users by name or email...',
+    loadItems: async ({ search }) => fetchUsers(search)
+  }
+  ```
+</ParamField>
+
+## Loading Patterns
+
+### When to use `loadItems` vs `loadOneItem`
+
+**Use `loadItems`:**
+- When navigating into an item to browse all children
+- When implementing search functionality
+- For the primary navigation flow
+
+**Use `loadOneItem`:**
+- When supporting deep-linking with `defaultPath`
+- When you need to restore a specific navigation state
+- To avoid loading all items when only one is needed
+
+**Use both together:**
+```tsx
+const rootItem: CommandDataItem = {
+  label: 'Organizations',
+  value: 'orgs',
+  // Load all orgs when user navigates here
+  loadItems: async ({ search }) => {
+    const orgs = await api.searchOrganizations(search)
+    return orgs.map(org => ({
+      label: org.name,
+      value: org.id,
+      loadItems: async () => fetchOrgProjects(org.id)
+    }))
+  },
+  // Load specific org when restoring from URL
+  loadOneItem: async (orgId) => {
+    const org = await api.getOrganization(orgId)
+    return {
+      label: org.name,
+      value: org.id,
+      loadItems: async () => fetchOrgProjects(org.id)
+    }
+  }
+}
+
+// Deep link to specific org
+<DataCommand
+  items={[rootItem]}
+  defaultPath={['orgs', 'org-123']}
+/>
+```
+
+## Item Types
+
+### Action Item (Leaf Node)
+```tsx
+{
+  label: 'Create New Project',
+  value: 'create-project',
+  icon: <PlusIcon />,
+  onSelect: () => createProject()
+}
+```
+
+### Navigation Item (Branch Node)
+```tsx
+{
+  label: 'Projects',
+  value: 'projects',
+  icon: <FolderIcon />,
+  searchPlaceholder: 'Search projects...',
+  loadItems: async ({ search }) => fetchProjects(search)
+}
+```
+
+### Hybrid Item (Both)
+```tsx
+{
+  label: 'Current Project',
+  value: 'project-1',
+  icon: <FolderIcon />,
+  onSelect: () => openProject('project-1'),
+  loadItems: async () => fetchProjectFiles('project-1')
+}
+```
+
+## Related
+
+- [DataCommand Component](/api/data-command) - Main component documentation
+- [Complete Props Reference](/api/props) - All API surface types
+- [API Loading Example](/examples/api-loading) - Advanced loading patterns
+- [Simple Example](/examples/simple) - Basic usage with nested items

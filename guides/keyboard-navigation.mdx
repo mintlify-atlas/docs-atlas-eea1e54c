@@ -1,0 +1,371 @@
+---
+title: Keyboard Navigation
+description: Master the keyboard shortcuts for efficient navigation in Data Command, including Tab, Enter, Backspace, and search
+---
+
+The Data Command component is designed for keyboard-first workflows. Every action can be performed without touching the mouse, making it incredibly fast for power users.
+
+## Complete Keyboard Shortcuts Reference
+
+| Key | Action | When Available |
+|-----|--------|----------------|
+| **Tab** | Drill into nested items | When focused item has `loadItems` |
+| **Enter** | Select current item | When focused item has `onSelect` |
+| **Backspace** | Navigate up one level | When search input is empty and in nested view |
+| **↑/↓ Arrow Keys** | Navigate through items | Always |
+| **Type** | Filter items | Always (when root level) or search nested items |
+| **Escape** | Close the command menu | Always (if implemented in Dialog) |
+
+## Tab: Drill Into Nested Items
+
+The **Tab** key allows you to drill down into items that have children. This is the primary way to navigate through hierarchical data.
+
+### When Tab Works
+
+Tab is enabled when the focused item has a `loadItems` function:
+
+```tsx
+const items = [
+  {
+    label: "Projects",
+    value: "projects",
+    loadItems: async () => [...], // Tab key enabled for this item
+  },
+  {
+    label: "Settings",
+    value: "settings",
+    onSelect: () => {}, // No loadItems, so Tab won't work
+  },
+];
+```
+
+### How It Works Internally
+
+```tsx
+// From data-command.tsx:219-222
+if (e.key === "Tab" && currentFocus?.loadItems) {
+  e.preventDefault();
+  handleTab(currentFocus);
+}
+
+// From data-command.tsx:200-203
+const handleTab = (item: CommandDataItem) => {
+  setCommandChainKeys((prev) => [...prev, item.value]);
+  setSearch("");
+};
+```
+
+When you press Tab:
+1. The component prevents the default tab behavior
+2. Adds the item to the command chain
+3. Clears the search input
+4. Triggers `loadItems` to fetch children
+
+### Visual Indicator
+
+Items with nested children display a **Tab** badge when focused:
+
+```tsx
+// From data-command.tsx:291-306
+<Badge
+  onClick={(e) => {
+    e.stopPropagation();
+    handleTab(item);
+  }}
+  variant="outline"
+  className={cn(
+    "text-[10px] text-gray-500 border-0 hidden text-xs p-1",
+    item.loadItems ? "flex" : "hidden"
+  )}
+>
+  <span className="hidden md:group-data-[selected=true]/item:block">
+    Tab
+  </span>
+  <MoveUpLeftIcon className="md:hidden text-white/50" />
+</Badge>
+```
+
+On desktop, the badge shows "Tab" text. On mobile, it shows a return arrow icon.
+
+<Note>
+  The Tab badge is only visible when the item is focused and has `loadItems` defined.
+</Note>
+
+## Enter: Select Items
+
+The **Enter** key selects the currently focused item and triggers its action.
+
+### When Enter Works
+
+Enter has two behaviors depending on context:
+
+1. **Item with `onSelect`**: Calls the handler and closes the menu
+2. **End of chain with no focused item**: Selects the last item in the command chain
+
+### How It Works Internally
+
+```tsx
+// From data-command.tsx:227-234
+if (e.key === "Enter" && !search && !currentFocus) {
+  e.preventDefault();
+  const lastItem = refinedChain.chain.at(-1);
+  if (lastItem?.onSelect) {
+    lastItem.onSelect();
+    onClose?.();
+  }
+}
+
+// From data-command.tsx:279-284 (item selection)
+onSelect={() => {
+  if (item.onSelect) {
+    item.onSelect();
+    onClose?.();
+  }
+}}
+```
+
+When you press Enter:
+1. If an item is focused, its `onSelect` handler is called
+2. If no item is focused but you're at the end of a chain, the last chain item's `onSelect` is called
+3. The dialog closes (via `onClose`)
+
+### Visual Indicator
+
+Items with `onSelect` display an **Enter** badge when focused:
+
+```tsx
+// From data-command.tsx:307-318
+<Badge
+  variant="outline"
+  className={cn(
+    "text-[10px] text-gray-500 border-0 hidden text-xs p-1",
+    item.onSelect ? "flex" : "hidden"
+  )}
+>
+  <span className="hidden md:group-data-[selected=true]/item:block">
+    Enter
+  </span>
+  <ArrowRight className="md:hidden text-white/50" />
+</Badge>
+```
+
+On desktop, the badge shows "Enter" text. On mobile, it shows a right arrow icon.
+
+<Tip>
+  Items can have both Tab and Enter badges if they have both `loadItems` and `onSelect` defined.
+</Tip>
+
+## Backspace: Navigate Up
+
+The **Backspace** key navigates up one level in the command chain, returning to the parent item.
+
+### When Backspace Works
+
+Backspace only works when:
+1. The search input is empty
+2. You're in a nested view (command chain has at least one item)
+
+### How It Works Internally
+
+```tsx
+// From data-command.tsx:223-226
+if (e.key === "Backspace" && !search) {
+  e.preventDefault();
+  setCommandChainKeys((p) => p.slice(0, p.length - 1));
+}
+```
+
+When you press Backspace:
+1. The component prevents the default backspace behavior
+2. Removes the last item from the command chain
+3. Returns to the parent level
+
+### Example Navigation Flow
+
+```tsx
+// Start: Projects
+["projects"]
+
+// Press Tab on "Project A"
+["projects", "project_a"]
+
+// Press Backspace
+["projects"] // Back to projects list
+
+// Press Backspace again
+[] // Back to root level
+```
+
+<Info>
+  If the search input has text, Backspace will delete characters instead of navigating up. Clear the search first to navigate up.
+</Info>
+
+## Search and Filtering
+
+Typing in the command menu filters items in real-time.
+
+### Root Level Filtering
+
+At the root level (when `refinedChain.chain.length === 0`), the component uses built-in filtering:
+
+```tsx
+// From data-command.tsx:206-207
+<Command
+  shouldFilter={refinedChain.chain.length === 0}
+```
+
+This uses the underlying `cmdk` library's filtering.
+
+### Nested Level Search
+
+When in a nested view, the search is passed to `loadItems`:
+
+```tsx
+// From data-command.tsx:148-150
+const key = isLastItem
+  ? [chainKey, search].filter(Boolean).join(":")
+  : chainKey;
+```
+
+The search parameter is included in the cache key, so changing the search triggers a new `loadItems` call:
+
+```tsx
+loadItems: async ({ search }) => {
+  const projects = await fetchProjects(search);
+  return projects.map(parseProject);
+}
+```
+
+### Custom Search Placeholders
+
+Each level can have a custom search placeholder:
+
+```tsx
+{
+  label: "Projects",
+  value: "projects",
+  searchPlaceholder: "Search projects...",
+  loadItems: async ({ search }) => {
+    const projects = await fetchProjects(search);
+    return projects.map(project => ({
+      label: project.name,
+      value: project.id,
+      searchPlaceholder: `Search files in ${project.name}`,
+      loadItems: async () => [...],
+    }));
+  },
+}
+```
+
+```tsx
+// From data-command.tsx:259-261
+placeholder={
+  refinedChain.chain.at(-1)?.searchPlaceholder ?? "Search..."
+}
+```
+
+## Arrow Keys: Navigate Items
+
+Use **↑** and **↓** arrow keys to move focus between items in the list. This is standard command palette behavior provided by the underlying `cmdk` library.
+
+## Clear All: X Button
+
+While not a keyboard shortcut, clicking the X button clears both the search and the command chain:
+
+```tsx
+// From data-command.tsx:263-271
+{(search || commandChainKeys.length > 0) && (
+  <XIcon
+    onClick={() => {
+      setSearch("");
+      setCommandChainKeys([]);
+    }}
+    className="ml-auto size-4 z-20 text-gray-500 hover:text-white cursor-pointer absolute top-4 right-4"
+  />
+)}
+```
+
+## Keyboard Navigation in the UI
+
+The component provides visual feedback for all keyboard actions:
+
+### Command Chain Badges
+
+The breadcrumb navigation at the top shows your current location:
+
+```tsx
+// From data-command.tsx:237-255
+<div className="flex items-center gap-2">
+  <SearchIcon className="ml-2 text-gray-500 size-4" />
+  {refinedChain.chain.map((i, idx) => (
+    <Fragment key={i.value}>
+      <Badge
+        onClick={() =>
+          setCommandChainKeys((prev) => prev.slice(0, idx + 1))
+        }
+        className="cursor-pointer"
+        variant="secondary"
+      >
+        {i.icon}
+        {i.label}
+      </Badge>
+      <ChevronRightIcon className="text-gray-500" />
+    </Fragment>
+  ))}
+</div>
+```
+
+These badges are **clickable** shortcuts to jump back to any level.
+
+### Action Badges on Items
+
+Each item shows which keyboard actions are available:
+
+- **Tab badge**: Item can be expanded with Tab (has `loadItems`)
+- **Enter badge**: Item can be selected with Enter (has `onSelect`)
+
+These badges appear when the item is focused on desktop, and are always visible as icons on mobile.
+
+## Keyboard-First Workflow Example
+
+Here's a complete interaction flow using only the keyboard:
+
+<Steps>
+  <Step title="Open the menu">
+    User presses `Cmd+K` (or your trigger shortcut)
+  </Step>
+  <Step title="Navigate to Projects">
+    User presses `↓` to focus "Projects", then presses `Tab` to drill in
+  </Step>
+  <Step title="Search for a project">
+    User types "scraper" to filter projects
+  </Step>
+  <Step title="Select a project">
+    User presses `↓` to focus "Scraper", then `Tab` to view its files
+  </Step>
+  <Step title="Select a file">
+    User presses `↓` to focus "script.go", then `Enter` to open it
+  </Step>
+</Steps>
+
+No mouse required!
+
+## Accessibility Considerations
+
+The keyboard navigation makes the component accessible:
+
+- All actions are available via keyboard
+- Visual indicators show which keys to press
+- Focus states are clearly visible
+- Screen readers can navigate the structure
+
+<Tip>
+  Consider adding `aria-label` attributes to items for better screen reader support.
+</Tip>
+
+## Related Resources
+
+- [Nested Commands Guide](/guides/nested-commands) - Learn about hierarchical navigation
+- [Async Loading Guide](/guides/async-loading) - Understand data fetching
+- [Simple Example](/examples/simple) - See basic keyboard navigation
+- [CommandDataItem API](/api/command-data-item) - Full interface documentation

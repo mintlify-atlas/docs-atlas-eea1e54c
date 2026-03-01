@@ -1,0 +1,235 @@
+---
+title: Nested Commands
+description: Learn how to create hierarchical command menus with nested navigation using the loadItems function
+---
+
+The Data Command component supports nested navigation, allowing you to create hierarchical command menus where users can drill down through multiple levels of items. This is perfect for organizing related actions or navigating through structured data like projects and files.
+
+## How Nested Navigation Works
+
+Nested navigation is enabled by the `loadItems` function on a `CommandDataItem`. When an item has a `loadItems` function, users can press **Tab** to drill into that item and load its children.
+
+```tsx
+interface CommandDataItem {
+  label: ReactNode;
+  value: string;
+  loadItems?: (props: { search: string }) => Promise<CommandDataItem[]>;
+  loadOneItem?: (key: string) => Promise<CommandDataItem>;
+  onSelect?: () => void;
+  icon?: ReactNode;
+  searchPlaceholder?: string;
+}
+```
+
+## Basic Nested Structure
+
+Here's a simple example showing a Profile menu with nested Settings:
+
+```tsx
+import { DataCommand } from "@/components/data-command";
+import { User, SettingsIcon } from "lucide-react";
+
+const items = [
+  {
+    icon: <User />,
+    label: "Profile",
+    value: "profile",
+    loadItems: async () => [
+      {
+        label: "Settings",
+        value: "settings",
+        icon: <SettingsIcon />,
+        onSelect: () => console.log("Navigate to settings"),
+      },
+    ],
+  },
+];
+
+<DataCommand items={items} />;
+```
+
+<Note>
+  Items with `loadItems` display a **Tab** badge when focused, indicating they can be expanded.
+</Note>
+
+## Real-World Example: Projects and Files
+
+A common use case is navigating through projects and their files. Here's how the Data Command handles this pattern:
+
+```tsx
+import { File, Folder } from "lucide-react";
+import { CommandDataItem } from "@/components/data-command";
+
+const parseProject = (project: Project): CommandDataItem => ({
+  label: project.name,
+  value: project.id,
+  icon: <Folder />,
+  // Load files when user drills into this project
+  loadItems: async () =>
+    project.files.map((file) => ({
+      label: file,
+      value: file,
+      icon: <File />,
+      onSelect: () => openFile(file),
+    })),
+});
+
+const items = [
+  {
+    icon: <Folder />,
+    label: "Projects",
+    value: "projects",
+    // Load all projects
+    loadItems: async ({ search }) => {
+      const projects = await fetchProjects(search);
+      return projects.map(parseProject);
+    },
+  },
+];
+```
+
+<Steps>
+  <Step title="User opens the command menu">
+    The top-level "Projects" item is displayed
+  </Step>
+  <Step title="User presses Tab on Projects">
+    The `loadItems` function fetches all projects and displays them
+  </Step>
+  <Step title="User presses Tab on a specific project">
+    That project's `loadItems` function loads and displays its files
+  </Step>
+  <Step title="User presses Enter on a file">
+    The file's `onSelect` handler is called
+  </Step>
+</Steps>
+
+## Command Chain and Badges
+
+As users navigate through nested items, the component displays a **command chain** showing the current navigation path:
+
+```tsx
+// Component renders badges showing the navigation path
+<div className="flex items-center gap-2">
+  <SearchIcon className="ml-2 text-gray-500 size-4" />
+  {refinedChain.chain.map((i, idx) => (
+    <Fragment key={i.value}>
+      <Badge
+        onClick={() => setCommandChainKeys((prev) => prev.slice(0, idx + 1))}
+        className="cursor-pointer"
+        variant="secondary"
+      >
+        {i.icon}
+        {i.label}
+      </Badge>
+      <ChevronRightIcon className="text-gray-500" />
+    </Fragment>
+  ))}
+</div>
+```
+
+The badges are **clickable** — users can click any badge in the chain to jump back to that level instantly.
+
+<Tip>
+  The command chain provides visual feedback and allows quick navigation back to any parent level.
+</Tip>
+
+## Organizing Nested Items
+
+Here are best practices for structuring nested commands:
+
+### Group Related Actions
+
+Group related items under a parent category:
+
+```tsx
+{
+  label: "Settings",
+  value: "settings",
+  icon: <SettingsIcon />,
+  loadItems: async () => [
+    { label: "Account", value: "account", onSelect: () => {} },
+    { label: "Security", value: "security", onSelect: () => {} },
+    { label: "Notifications", value: "notifications", onSelect: () => {} },
+  ],
+}
+```
+
+### Keep Hierarchies Shallow
+
+Limit nesting to 2-3 levels for the best user experience. Deep nesting can be confusing.
+
+```tsx
+// Good: 2 levels
+Projects → Files
+
+// Acceptable: 3 levels
+Workspaces → Projects → Files
+
+// Avoid: 4+ levels
+Organization → Workspaces → Projects → Folders → Files
+```
+
+### Use Meaningful Labels
+
+Make each level's purpose clear through labels and icons:
+
+```tsx
+{
+  icon: <Folder />,
+  label: "My Projects",  // Clear and specific
+  value: "projects",
+  loadItems: async () => [...],
+}
+```
+
+### Provide Custom Search Placeholders
+
+Customize the search placeholder for each level:
+
+```tsx
+{
+  label: "Projects",
+  value: "projects",
+  searchPlaceholder: "Search projects...",
+  loadItems: async ({ search }) => {
+    const projects = await fetchProjects(search);
+    return projects.map(project => ({
+      label: project.name,
+      value: project.id,
+      searchPlaceholder: "Search files in " + project.name,
+      loadItems: async () => [...],
+    }));
+  },
+}
+```
+
+## Mixed Selection Patterns
+
+Items can have both `loadItems` and `onSelect`, allowing selection at any level:
+
+```tsx
+{
+  label: "Projects",
+  value: "projects",
+  icon: <Folder />,
+  // User can select to view all projects
+  onSelect: () => navigate("/projects"),
+  // Or drill down to see specific projects
+  loadItems: async () => [...],
+}
+```
+
+When both are present:
+- Pressing **Enter** triggers `onSelect`
+- Pressing **Tab** drills into children via `loadItems`
+
+<Info>
+  This pattern is useful for "view all" actions combined with drill-down navigation.
+</Info>
+
+## Related Resources
+
+- [Async Loading Guide](/guides/async-loading) - Learn about loading data asynchronously
+- [Keyboard Navigation](/guides/keyboard-navigation) - Master keyboard shortcuts
+- [API Reference](/api/command-data-item) - Full CommandDataItem interface documentation
+- [API Loading Example](/examples/api-loading) - See nested commands with real API calls

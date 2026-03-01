@@ -1,0 +1,247 @@
+---
+title: "Default Chain Example"
+description: "Learn how to prefill command chains and implement deep linking with loadOneItem"
+---
+
+## Overview
+
+This example demonstrates how to use `defaultPath` with `loadOneItem` to create deep links into your command palette. This is perfect for scenarios where you want to open the command palette at a specific nested location, like a particular project or folder.
+
+## Full Code Example
+
+```tsx
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { DialogTrigger } from "@radix-ui/react-dialog";
+import { File, Folder } from "lucide-react";
+import { CommandDataItem, DataCommand } from "../../components/data-command";
+import { fetchOneProject, fetchProjects, Project } from "../../api/projects";
+
+const parseProject = (project: Project): CommandDataItem => ({
+  label: project.name,
+  value: project.id,
+  icon: <Folder />,
+  loadItems: async () =>
+    project.files.map((file) => ({
+      label: file,
+      value: file,
+      icon: <File />,
+      onSelect: () => alert("Selected file: " + file),
+    })),
+});
+
+export default function DefaultChainExample() {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button>View Project 2</Button>
+      </DialogTrigger>
+      <DialogContent className="p-0">
+        <DialogTitle className="sr-only">Site Search</DialogTitle>
+        <DataCommand
+          items={[
+            {
+              icon: <Folder />,
+              label: "Projects",
+              value: "projects",
+              loadItems: async ({ search }) => {
+                const projects = await fetchProjects(search);
+                return projects.map(parseProject);
+              },
+              loadOneItem: async (projectId) => {
+                const project = await fetchOneProject(projectId);
+                return parseProject(project);
+              },
+              onSelect: () => alert("Redirect to projects page"),
+            },
+          ]}
+          defaultPath={["projects", "project_2"]}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+## API Helper Functions
+
+The `fetchOneProject` function loads a single project by ID:
+
+```tsx
+export const fetchOneProject = async (project_id: string) => {
+  return new Promise<Project>((resolve, reject) => {
+    setTimeout(() => {
+      const project = projects.find((project) => project.id === project_id);
+      if (project) resolve(project);
+      else reject("project not found");
+    }, 500);
+  });
+};
+```
+
+## Key Concepts
+
+### defaultPath for Prefilled Command Chains
+
+The `defaultPath` prop accepts an array of values representing the navigation path:
+
+```tsx
+<DataCommand
+  items={[...]}
+  defaultPath={["projects", "project_2"]}
+/>
+```
+
+**How this works:**
+
+1. DataCommand opens at the "projects" item (first value in the path)
+2. It then navigates to "project_2" (second value in the path)
+3. The user sees the files inside Project 2 immediately
+
+This creates a "deep link" directly to a specific nested location in your command palette.
+
+<Note>
+  The path values correspond to the `value` property of each item in the hierarchy.
+</Note>
+
+### loadOneItem for Lazy Loading
+
+When using `defaultPath` with nested items, DataCommand needs a way to load individual items without loading all items. That's where `loadOneItem` comes in:
+
+```tsx
+loadOneItem: async (projectId) => {
+  const project = await fetchOneProject(projectId);
+  return parseProject(project);
+}
+```
+
+**Why is this needed?**
+
+Imagine you have thousands of projects. When the user opens the command palette with `defaultPath={["projects", "project_2"]}`, you don't want to:
+
+1. Load all thousands of projects via `loadItems`
+2. Filter through them to find `project_2`
+
+Instead, DataCommand:
+
+1. Calls `loadOneItem("project_2")` to fetch just that one project
+2. Displays that project's files immediately
+3. Only calls `loadItems` if the user navigates back and wants to see all projects
+
+<Tip>
+  **Performance Optimization**: `loadOneItem` enables efficient deep linking by only loading the specific items in the path, rather than all items at each level.
+</Tip>
+
+### Comparison: loadItems vs loadOneItem
+
+| Function | Purpose | When Called | Parameters |
+|----------|---------|-------------|------------|
+| `loadItems` | Load all child items (with optional filtering) | User navigates into an item, or types in search | `{ search: string }` |
+| `loadOneItem` | Load a single specific item | DataCommand navigates via `defaultPath` | `value: string` |
+
+## Use Cases for Deep Linking
+
+Deep linking into command palettes is useful for:
+
+### 1. Context-Aware Commands
+
+```tsx
+// Open command palette showing commands for a specific file
+<DataCommand
+  defaultPath={["files", fileId, "actions"]}
+/>
+```
+
+### 2. Notification Actions
+
+```tsx
+// User clicks notification about Project 2
+// Open command palette directly at Project 2's files
+<DataCommand
+  defaultPath={["projects", "project_2"]}
+/>
+```
+
+### 3. URL-Based Deep Links
+
+```tsx
+// Parse URL parameter and deep link
+const searchParams = useSearchParams();
+const projectId = searchParams.get('project');
+
+<DataCommand
+  defaultPath={projectId ? ["projects", projectId] : ["projects"]}
+/>
+```
+
+### 4. Recently Accessed Items
+
+```tsx
+// Open command palette at user's last viewed project
+const lastProject = localStorage.getItem('lastViewedProject');
+
+<DataCommand
+  defaultPath={["projects", lastProject]}
+/>
+```
+
+## Implementation Tips
+
+<Warning>
+  **Important**: When using `defaultPath` with nested navigation, you must implement `loadOneItem` for each level that appears in the path (except the first level). Otherwise, DataCommand won't know how to load the intermediate items.
+</Warning>
+
+### Error Handling in loadOneItem
+
+```tsx
+loadOneItem: async (projectId) => {
+  try {
+    const project = await fetchOneProject(projectId);
+    return parseProject(project);
+  } catch (error) {
+    console.error(`Failed to load project ${projectId}:`, error);
+    // Return a placeholder or redirect to root
+    return null;
+  }
+}
+```
+
+### Validating defaultPath Values
+
+```tsx
+const [defaultPath, setDefaultPath] = useState<string[]>([]);
+
+useEffect(() => {
+  const validatePath = async () => {
+    try {
+      await fetchOneProject(projectId);
+      setDefaultPath(["projects", projectId]);
+    } catch {
+      // Invalid project ID, use default path
+      setDefaultPath(["projects"]);
+    }
+  };
+  validatePath();
+}, [projectId]);
+
+<DataCommand defaultPath={defaultPath} />
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Simple Example" icon="sparkles" href="/examples/simple">
+    Start with the basics of DataCommand
+  </Card>
+  <Card title="API Loading Example" icon="cloud" href="/examples/api-loading">
+    Learn about async data fetching
+  </Card>
+</CardGroup>
+
+## Related Guides
+
+- [Nested Commands Guide](/guides/nested-commands) - Understanding paths and navigation
+- [DataCommand API](/api/data-command) - Complete defaultPath API documentation
+- [CommandDataItem API](/api/command-data-item) - Complete loadOneItem API documentation
